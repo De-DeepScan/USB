@@ -129,6 +129,15 @@
       border-color: rgba(239, 68, 68, 0.3);
     }
 
+    .status.ejected .status-dot {
+      background: #f59e0b;
+    }
+
+    .status.ejected {
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
     @keyframes blink {
 
       0%,
@@ -216,26 +225,69 @@
     const statusText = document.getElementById("statusText");
     const usbIcon = document.getElementById("usbIcon");
 
+    let usbPhysicallyConnected = true;
+    let socketConnected = false;
+
     function setStatus(state) {
       statusBadge.className = "status " + state;
       usbIcon.className = "usb-icon " + state;
 
       if (state === "connecting") statusText.textContent = "Connexion...";
       else if (state === "connected") statusText.textContent = "Connecté";
+      else if (state === "ejected") statusText.textContent = "Clé éjectée";
       else statusText.textContent = "Déconnecté";
     }
 
+    // USB physical presence detection via probe file
+    function checkUsbPresence() {
+      const img = new Image();
+      img.onload = function () {
+        // USB still physically connected
+        if (!usbPhysicallyConnected) {
+          usbPhysicallyConnected = true;
+          // Re-register if socket is connected
+          if (socketConnected) {
+            socket.emit("register", {
+              gameId: "usb-key",
+              name: "Clé USB",
+              availableActions: [],
+            });
+            setStatus("connected");
+          }
+        }
+      };
+      img.onerror = function () {
+        // USB was physically ejected
+        if (usbPhysicallyConnected) {
+          usbPhysicallyConnected = false;
+          socket.emit("event", { name: "usb_unplugged" });
+          setStatus("ejected");
+        }
+      };
+      // Cache-busting to force fresh request
+      img.src = "./probe.png?" + Date.now();
+    }
+
+    // Check USB presence every 2 seconds
+    setInterval(checkUsbPresence, 2000);
+
     socket.on("connect", function () {
-      socket.emit("register", {
-        gameId: "usb-key",
-        name: "Clé USB",
-        availableActions: [],
-      });
-      setStatus("connected");
+      socketConnected = true;
+      if (usbPhysicallyConnected) {
+        socket.emit("register", {
+          gameId: "usb-key",
+          name: "Clé USB",
+          availableActions: [],
+        });
+        setStatus("connected");
+      }
     });
 
     socket.on("disconnect", function () {
-      setStatus("disconnected");
+      socketConnected = false;
+      if (usbPhysicallyConnected) {
+        setStatus("disconnected");
+      }
     });
 
     socket.on("reconnecting", function () {
@@ -246,7 +298,7 @@
       setStatus("connecting");
     });
 
-    // Send explicit event when page is closing (USB unplugged)
+    // Also send event when page is closing
     window.addEventListener("beforeunload", function () {
       socket.emit("event", { name: "usb_unplugged" });
     });

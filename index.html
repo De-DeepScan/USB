@@ -245,6 +245,11 @@
     socket.io.on("reconnect_attempt", function () {
       setStatus("connecting");
     });
+
+    // Send explicit event when page is closing (USB unplugged)
+    window.addEventListener("beforeunload", function () {
+      socket.emit("event", { name: "usb_unplugged" });
+    });
   </script>
 </body>
 

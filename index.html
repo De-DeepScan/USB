@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepScan - Clé USB</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0e14;
+      color: #c0f0e8;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+      position: relative;
+    }
+
+    .usb-icon {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 2rem;
+      position: relative;
+    }
+
+    .usb-icon svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 0 20px rgba(0, 255, 200, 0.3));
+    }
+
+    .usb-icon.connected svg {
+      filter: drop-shadow(0 0 30px rgba(0, 255, 200, 0.6));
+    }
+
+    .usb-icon.connected .pulse-ring {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(1.3);
+      }
+    }
+
+    .title {
+      font-size: 1.5rem;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      color: #e0f7f0;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #4a9e8e;
+      margin-bottom: 2.5rem;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 24px;
+      border: 1px solid rgba(0, 255, 200, 0.2);
+      border-radius: 4px;
+      background: rgba(0, 255, 200, 0.03);
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.3s;
+    }
+
+    .status.connecting .status-dot {
+      background: #f59e0b;
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    .status.connected .status-dot {
+      background: #00ffc8;
+      box-shadow: 0 0 8px rgba(0, 255, 200, 0.6);
+    }
+
+    .status.disconnected .status-dot {
+      background: #ef4444;
+    }
+
+    .status.connecting {
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .status.connected {
+      color: #00ffc8;
+      border-color: rgba(0, 255, 200, 0.3);
+    }
+
+    .status.disconnected {
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    /* Scanline overlay */
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 255, 200, 0.015) 2px,
+          rgba(0, 255, 200, 0.015) 4px);
+      z-index: 10;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="scanlines"></div>
+  <div class="container">
+    <div class="usb-icon" id="usbIcon">
+      <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <!-- Pulse ring (behind) -->
+        <circle class="pulse-ring" cx="50" cy="50" r="45" stroke="currentColor" stroke-width="1" fill="none"
+          opacity="0" />
+        <!-- USB body -->
+        <rect x="30" y="20" width="40" height="55" rx="3" />
+        <!-- USB connector -->
+        <rect x="35" y="10" width="30" height="14" rx="2" />
+        <!-- USB pins -->
+        <line x1="42" y1="13" x2="42" y2="21" />
+        <line x1="50" y1="13" x2="50" y2="21" />
+        <line x1="58" y1="13" x2="58" y2="21" />
+        <!-- Circuit lines -->
+        <line x1="50" y1="38" x2="50" y2="55" />
+        <line x1="40" y1="48" x2="50" y2="48" />
+        <line x1="50" y1="48" x2="60" y2="48" />
+        <circle cx="50" cy="55" r="3" fill="currentColor" />
+        <circle cx="40" cy="48" r="2" fill="currentColor" />
+        <circle cx="60" cy="48" r="2" fill="currentColor" />
+        <!-- DeepScan label area -->
+        <text x="50" y="68" text-anchor="middle" font-size="6" font-family="Courier New" fill="currentColor"
+          stroke="none">DS</text>
+      </svg>
+    </div>
+
+    <h1 class="title">Clé USB</h1>
+    <p class="subtitle">DeepScan Module</p>
+
+    <div class="status connecting" id="statusBadge">
+      <span class="status-dot"></span>
+      <span id="statusText">Connexion...</span>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+
+    const GAMEMASTER_URL = "http://192.168.10.1:3000"; // ESD MAC
+    // const GAMEMASTER_URL = "http://192.168.1.46:3000"; // THOMAS HOME
+    // const GAMEMASTER_URL = "http://10.14.73.40:3000"; // THOMAS ESD
+
+    const socket = io(GAMEMASTER_URL, {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: Infinity,
+    });
+
+    const statusBadge = document.getElementById("statusBadge");
+    const statusText = document.getElementById("statusText");
+    const usbIcon = document.getElementById("usbIcon");
+
+    function setStatus(state) {
+      statusBadge.className = "status " + state;
+      usbIcon.className = "usb-icon " + state;
+
+      if (state === "connecting") statusText.textContent = "Connexion...";
+      else if (state === "connected") statusText.textContent = "Connecté";
+      else statusText.textContent = "Déconnecté";
+    }
+
+    socket.on("connect", function () {
+      socket.emit("register", {
+        gameId: "usb-key",
+        name: "Clé USB",
+        availableActions: [],
+      });
+      setStatus("connected");
+    });
+
+    socket.on("disconnect", function () {
+      setStatus("disconnected");
+    });
+
+    socket.on("reconnecting", function () {
+      setStatus("connecting");
+    });
+
+    socket.io.on("reconnect_attempt", function () {
+      setStatus("connecting");
+    });
+  </script>
+</body>
+
+</html>
